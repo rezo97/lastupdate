@@ -3,162 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#FAFAFA">
+    <title>Dressiver Scanner</title>
     
-    <title>Scanner App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
     <style>
-        /* კამერის ჩარჩოს კორექცია მობილურისთვის */
-        #reader { width: 100%; border-radius: 12px; overflow: hidden; border: none !important; }
-        #reader video { border-radius: 12px; object-fit: cover; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         
-        /* ვაქრობთ ტექსტის მონიშვნის შესაძლებლობას, რომ სწრაფი კლიკებისას არ მოინიშნოს */
-        body { -webkit-user-select: none; user-select: none; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-user-select: none; 
+            user-select: none; 
+            background-color: #FAFAFA; 
+        }
+
+        /* კამერის კონტეინერის სტილიზაცია (Insta-style) */
+        #reader-container { position: relative; width: 100%; height: 100%; border-radius: 24px; overflow: hidden; background: #000; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        #reader { width: 100%; height: 100%; border: none !important; }
+        #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; border-radius: 24px; }
+        #reader br, #reader a { display: none !important; } /* ვმალავთ ზედმეტ ელემენტებს */
+
+        /* Insta გრადიენტი ტექსტისთვის */
+        .text-gradient {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .bg-gradient-insta {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+
+        /* ნავიგაციის აქტიური ღილაკის ანიმაცია */
+        .nav-btn { transition: all 0.2s ease-in-out; }
+        .nav-btn.active { transform: translateY(-2px); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans h-screen flex flex-col">
+<body class="h-screen flex flex-col text-gray-800 overflow-hidden">
 
-    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 class="text-xl font-bold tracking-wide">📦 QR სკანერი</h1>
-        <div class="flex space-x-4">
-            <button onclick="showTab('scanner')" class="font-semibold hover:text-blue-200">სკანერი</button>
-            <button onclick="showTab('history')" class="font-semibold hover:text-blue-200">ისტორია</button>
-        </div>
+    <header class="bg-[#FAFAFA] pt-6 pb-4 px-6 flex justify-between items-center z-10">
+        <h1 class="text-2xl font-extrabold tracking-tight">
+            <span class="text-gradient">Dressiver</span> App
+        </h1>
     </header>
 
-    <main class="flex-1 p-4 overflow-y-auto w-full max-w-md mx-auto">
+    <main class="flex-1 relative w-full max-w-md mx-auto px-4 pb-4 overflow-hidden flex flex-col">
         
-        <div id="scanner-tab" class="flex flex-col items-center">
+        <div id="scanner-tab" class="flex-1 flex flex-col relative transition-opacity duration-300">
             
-            <div id="status-card" class="bg-white w-full p-4 rounded-xl shadow-sm border border-gray-200 mb-4 text-center transition-colors duration-300">
-                <h2 id="instruction-text" class="text-lg font-bold text-blue-600">1. დაასკანერე ნივთის QR</h2>
-                <p id="scanned-order-display" class="text-sm text-gray-500 mt-1 hidden">შეკვეთა: <span id="order-number" class="font-bold text-gray-800"></span></p>
+            <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 w-[90%] pointer-events-none">
+                <div id="status-card" class="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-center flex flex-col items-center border border-gray-100 transition-all duration-300">
+                    <span id="instruction-text" class="font-bold text-gray-800 text-lg">1. დაასკანერე ნივთი</span>
+                    <span id="scanned-order-display" class="hidden text-sm font-semibold text-gray-500 mt-1 flex items-center gap-1">
+                        შეკვეთა: <span id="order-number" class="text-gradient text-base tracking-wide"></span>
+                    </span>
+                </div>
             </div>
 
-            <div id="reader" class="shadow-lg bg-black w-full"></div>
+            <div id="reader-container" class="flex-1">
+                <div id="reader"></div>
+            </div>
 
-            <button id="reset-btn" onclick="resetScan()" class="mt-6 bg-gray-200 text-gray-700 px-6 py-3 rounded-full font-semibold hidden hover:bg-gray-300 transition w-full max-w-xs active:bg-gray-400">
-                თავიდან დაწყება
-            </button>
+            <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 w-[80%]">
+                <button id="reset-btn" onclick="resetScan()" class="w-full bg-white text-gray-800 py-3 rounded-full font-bold shadow-lg hidden active:scale-95 transition-transform flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    გაუქმება
+                </button>
+            </div>
         </div>
 
-        <div id="history-tab" class="hidden flex-col h-full">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-700">ბოლო ჩანაწერები</h2>
-                <button onclick="clearHistory()" class="text-red-500 text-sm font-semibold hover:underline p-2">გასუფთავება</button>
+        <div id="history-tab" class="hidden flex-1 flex-col h-full bg-white rounded-3xl p-5 shadow-sm border border-gray-100 overflow-y-auto mb-2">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">აქტივობა</h2>
+                <button onclick="clearHistory()" class="text-red-500 text-sm font-semibold hover:opacity-70 bg-red-50 px-3 py-1 rounded-full">წაშლა</button>
             </div>
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-4">
-                <ul id="history-list" class="divide-y divide-gray-100">
-                    </ul>
-            </div>
+            <ul id="history-list" class="space-y-3">
+                </ul>
         </div>
 
     </main>
 
+    <nav class="bg-white border-t border-gray-100 px-6 py-4 flex justify-around items-center rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.04)] z-30 relative pb-6">
+        <button id="nav-scanner" onclick="showTab('scanner')" class="nav-btn active flex flex-col items-center text-gray-800">
+            <svg class="w-7 h-7 mb-1" fill="none" stroke="url(#insta-grad)" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="insta-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#f09433" />
+                        <stop offset="50%" stop-color="#dc2743" />
+                        <stop offset="100%" stop-color="#bc1888" />
+                    </linearGradient>
+                </defs>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span class="text-[10px] font-bold text-transparent bg-clip-text bg-gradient-insta">კამერა</span>
+        </button>
+        
+        <button id="nav-history" onclick="showTab('history')" class="nav-btn flex flex-col items-center text-gray-400">
+            <svg class="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="text-[10px] font-semibold">ისტორია</span>
+        </button>
+    </nav>
+
     <script>
         let currentOrder = null;
-        let html5QrcodeScanner = null;
+        let html5QrCode;
+        let isProcessing = false; // ლოგიკური პაუზისთვის
 
-        // აპლიკაციის ჩატვირთვისას ისტორიის განახლება
         document.addEventListener("DOMContentLoaded", () => {
             loadHistory();
-            startScanner();
+            initScanner();
         });
 
-        function startScanner() {
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader",
-                { fps: 10, qrbox: {width: 250, height: 250}, aspectRatio: 1.0 },
-                /* verbose= */ false);
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        function initScanner() {
+            // ვიყენებთ Html5Qrcode-ს პირდაპირ, რომ UI ჩვენ ვაკონტროლოთ და უკანა კამერა დავაძალოთ
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0 
+            };
+
+            // მკაცრად უკანა კამერის მოთხოვნა
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                console.warn("უკანა კამერა ვერ მოიძებნა, ვრთავთ ალტერნატივას.", err);
+                // თუ ტაბლეტია ან წინა კამერა აქვს მხოლოდ (იშვიათი შემთხვევა), ჩვეულებრივად ჩართავს
+                html5QrCode.start({ facingMode: "user" }, config, onScanSuccess);
+            });
         }
 
-        function onScanSuccess(decodedText, decodedResult) {
-            // თუ პირველი სკანირებაა (ნივთი)
+        function onScanSuccess(decodedText) {
+            // თუ ამჟამად მუშავდება წინა დასკანერებული, ვაიგნორებთ
+            if (isProcessing) return;
+            isProcessing = true;
+
             if (!currentOrder) {
+                // 1. დაფიქსირდა ნივთი
                 currentOrder = decodedText;
                 
-                // UI-ს შეცვლა
-                document.getElementById('instruction-text').innerText = "2. დაასკანერე თაროს QR";
-                document.getElementById('instruction-text').classList.replace('text-blue-600', 'text-green-600');
+                // UI ცვლილება
+                document.getElementById('instruction-text').innerText = "2. დაასკანერე თარო";
+                document.getElementById('instruction-text').classList.replace('text-gray-800', 'text-transparent');
+                document.getElementById('instruction-text').classList.add('bg-clip-text', 'bg-gradient-insta');
                 
                 document.getElementById('scanned-order-display').classList.remove('hidden');
                 document.getElementById('order-number').innerText = currentOrder;
-                
                 document.getElementById('reset-btn').classList.remove('hidden');
                 
-                // ვიბრაცია (თუ ტელეფონს აქვს მხარდაჭერა) წარმატებულ სკანირებაზე
                 if (navigator.vibrate) navigator.vibrate(100);
 
-                // პაუზა რომ ზედიზედ არ წაიკითხოს იგივე
-                html5QrcodeScanner.pause(true);
-                setTimeout(() => html5QrcodeScanner.resume(), 1500);
+                // 1.5 წამიანი დაყოვნება, რომ ზედიზედ ეგრევე მეორე არ წაიკითხოს
+                setTimeout(() => { isProcessing = false; }, 1500);
             } 
-            // თუ მეორე სკანირებაა (თარო)
             else {
+                // 2. დაფიქსირდა თარო
                 let shelfQr = decodedText;
                 saveRecord(currentOrder, shelfQr);
                 
-                // ვიბრაცია დასრულებისას
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
-                // UI-ს დაბრუნება საწყის მდგომარეობაში ოდნავი დაყოვნებით
-                html5QrcodeScanner.pause(true);
-                document.getElementById('instruction-text').innerText = "✅ წარმატებით დაემატა!";
-                
+                document.getElementById('instruction-text').innerText = "✅ დაემატა!";
+                document.getElementById('instruction-text').classList.remove('text-transparent', 'bg-clip-text', 'bg-gradient-insta');
+                document.getElementById('instruction-text').classList.add('text-green-500');
+
                 setTimeout(() => {
                     resetScan();
-                    html5QrcodeScanner.resume();
-                }, 2000);
+                    isProcessing = false;
+                }, 1500);
             }
-        }
-
-        function onScanFailure(error) {
-            // უგულებელვყოფთ შეცდომებს, რადგან ყოველ კადრზე აგდებს თუ QR ვერ იპოვა
         }
 
         function resetScan() {
             currentOrder = null;
-            document.getElementById('instruction-text').innerText = "1. დაასკანერე ნივთის QR";
-            document.getElementById('instruction-text').classList.replace('text-green-600', 'text-blue-600');
+            document.getElementById('instruction-text').innerText = "1. დაასკანერე ნივთი";
+            document.getElementById('instruction-text').className = "font-bold text-gray-800 text-lg";
             document.getElementById('scanned-order-display').classList.add('hidden');
             document.getElementById('reset-btn').classList.add('hidden');
         }
 
         function saveRecord(order, shelf) {
-            let history = JSON.parse(localStorage.getItem('qr_history')) || [];
+            let history = JSON.parse(localStorage.getItem('dressiver_qr_history')) || [];
             let timeString = new Date().toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' });
             
-            history.unshift({ order: order, shelf: shelf, time: timeString }); // ვამატებთ თავში
-            localStorage.setItem('qr_history', JSON.stringify(history));
+            history.unshift({ order: order, shelf: shelf, time: timeString });
+            localStorage.setItem('dressiver_qr_history', JSON.stringify(history));
             loadHistory();
         }
 
         function loadHistory() {
-            let history = JSON.parse(localStorage.getItem('qr_history')) || [];
+            let history = JSON.parse(localStorage.getItem('dressiver_qr_history')) || [];
             let list = document.getElementById('history-list');
             list.innerHTML = "";
             
             if (history.length === 0) {
-                list.innerHTML = '<li class="p-6 text-center text-gray-500 text-sm">ისტორია ცარიელია</li>';
+                list.innerHTML = '<li class="p-8 text-center text-gray-400 text-sm font-medium">აქტივობა ცარიელია</li>';
                 return;
             }
 
             history.forEach(item => {
                 let li = document.createElement('li');
-                li.className = "p-4 flex justify-between items-center hover:bg-gray-50 active:bg-gray-100 transition";
+                li.className = "p-4 flex justify-between items-center bg-gray-50 rounded-2xl active:scale-[0.98] transition-transform";
                 li.innerHTML = `
                     <div class="flex flex-col">
-                        <span class="font-bold text-gray-800 text-lg">${item.order}</span>
-                        <span class="text-xs text-gray-400 mt-1">${item.time}</span>
+                        <span class="font-bold text-gray-800 text-lg tracking-tight">${item.order}</span>
+                        <span class="text-xs text-gray-400 mt-0.5 font-medium">${item.time}</span>
                     </div>
-                    <div class="bg-blue-100 text-blue-800 text-sm font-semibold px-4 py-2 rounded-full shadow-sm">
-                        თარო: ${item.shelf}
+                    <div class="bg-white border border-gray-200 text-gray-700 text-sm font-bold px-4 py-2 rounded-xl shadow-sm flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-gradient-insta"></span>
+                        ${item.shelf}
                     </div>
                 `;
                 list.appendChild(li);
@@ -167,20 +226,37 @@
 
         function clearHistory() {
             if(confirm("ნამდვილად გსურთ ისტორიის წაშლა?")) {
-                localStorage.removeItem('qr_history');
+                localStorage.removeItem('dressiver_qr_history');
                 loadHistory();
             }
         }
 
         function showTab(tabName) {
+            const scannerTab = document.getElementById('scanner-tab');
+            const historyTab = document.getElementById('history-tab');
+            const navScanner = document.getElementById('nav-scanner');
+            const navHistory = document.getElementById('nav-history');
+
+            // Reset nav styles
+            navScanner.classList.replace('text-gray-800', 'text-gray-400');
+            navHistory.classList.replace('text-gray-800', 'text-gray-400');
+            navScanner.querySelector('svg').setAttribute('stroke', 'currentColor');
+            navScanner.querySelector('span').className = 'text-[10px] font-semibold mt-1';
+            
             if(tabName === 'scanner') {
-                document.getElementById('scanner-tab').classList.remove('hidden');
-                document.getElementById('history-tab').classList.add('hidden');
-                document.getElementById('history-tab').classList.remove('flex');
+                scannerTab.classList.remove('hidden');
+                historyTab.classList.add('hidden');
+                
+                // Active styles for scanner
+                navScanner.classList.replace('text-gray-400', 'text-gray-800');
+                navScanner.querySelector('svg').setAttribute('stroke', 'url(#insta-grad)');
+                navScanner.querySelector('span').className = 'text-[10px] font-bold text-transparent bg-clip-text bg-gradient-insta mt-1';
             } else {
-                document.getElementById('scanner-tab').classList.add('hidden');
-                document.getElementById('history-tab').classList.remove('hidden');
-                document.getElementById('history-tab').classList.add('flex');
+                scannerTab.classList.add('hidden');
+                historyTab.classList.remove('hidden');
+                
+                // Active styles for history
+                navHistory.classList.replace('text-gray-400', 'text-gray-800');
             }
         }
     </script>
