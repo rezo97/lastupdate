@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
         
         body { 
             font-family: 'Inter', sans-serif; 
@@ -22,25 +22,29 @@
             background-color: #FAFAFA; 
         }
 
-        /* კამერის კონტეინერის სტილიზაცია (Insta-style) */
+        /* კამერის კონტეინერი */
         #reader-container { position: relative; width: 100%; height: 100%; border-radius: 24px; overflow: hidden; background: #000; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         #reader { width: 100%; height: 100%; border: none !important; }
         #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; border-radius: 24px; }
-        #reader br, #reader a { display: none !important; } /* ვმალავთ ზედმეტ ელემენტებს */
+        #reader br, #reader a { display: none !important; }
 
-        /* Insta გრადიენტი ტექსტისთვის */
+        /* გრადიენტი */
         .text-gradient {
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
         .bg-gradient-insta {
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
         }
 
-        .nav-btn { transition: all 0.2s ease-in-out; }
-        .nav-btn.active { transform: translateY(-2px); }
+        /* ანიმაცია შედეგის გამოჩენისას */
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
 </head>
 <body class="h-screen flex flex-col text-gray-800 overflow-hidden">
@@ -57,29 +61,28 @@
             
             <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 w-[90%] pointer-events-none">
                 <div id="status-card" class="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-center flex flex-col items-center border border-gray-100 transition-all duration-300">
-                    <span id="instruction-text" class="font-bold text-gray-800 text-lg">1. დაუმიზნე ნივთს და დააჭირე</span>
-                    <span id="scanned-order-display" class="hidden text-sm font-semibold text-gray-500 mt-1 flex items-center gap-1">
-                        შეკვეთა: <span id="order-number" class="text-gradient text-base tracking-wide"></span>
-                    </span>
+                    <span id="instruction-text" class="font-bold text-gray-800 text-lg transition-all duration-300">1. დაუმიზნე ნივთს და დააჭირე</span>
                 </div>
             </div>
 
             <div id="reader-container" class="flex-1">
                 <div id="reader"></div>
+                
+                <div id="result-overlay" class="absolute inset-0 bg-white/95 backdrop-blur-sm z-40 hidden flex-col justify-center items-center rounded-24px p-6">
+                    <p class="text-gray-500 font-semibold mb-2 text-lg">შეკვეთა: <span id="overlay-order" class="text-gray-800"></span></p>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-4">დადე თაროზე</h2>
+                    <div class="w-48 h-48 rounded-full bg-gradient-insta flex justify-center items-center shadow-2xl mb-8">
+                        <span id="overlay-shelf" class="text-[120px] font-black text-white leading-none mt-4 drop-shadow-md"></span>
+                    </div>
+                </div>
             </div>
 
             <div class="absolute bottom-6 left-0 w-full flex justify-center items-center z-30 px-8">
-                
-                <button id="cancel-btn" onclick="resetScan()" class="absolute left-8 w-10 h-10 bg-white/20 backdrop-blur-md border border-white/50 text-white rounded-full flex justify-center items-center hidden active:scale-90 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-
                 <div class="flex flex-col items-center gap-2">
                     <button id="capture-btn" onclick="triggerScan()" class="w-20 h-20 rounded-full bg-transparent border-4 border-white/80 flex items-center justify-center active:scale-95 transition-transform outline-none">
-                        <div id="capture-inner" class="w-16 h-16 rounded-full bg-white transition-all duration-300"></div>
+                        <div id="capture-inner" class="w-16 h-16 rounded-full bg-white transition-all duration-300 shadow-md"></div>
                     </button>
                 </div>
-
             </div>
         </div>
 
@@ -117,10 +120,7 @@
     </nav>
 
     <script>
-        let currentOrder = null;
         let html5QrCode;
-        
-        // უმთავრესი ლოგიკა: სკანირების უფლება. სანამ ღილაკს არ დააჭერს, არის false.
         let isScanAllowed = false; 
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -138,16 +138,13 @@
             });
         }
 
-        // ამ ფუნქციას იძახებს დიდი მრგვალი ღილაკი
         function triggerScan() {
-            if (isScanAllowed) return; // თუ უკვე დაჭერილი აქვს და ეძებს
+            if (isScanAllowed) return; 
+            isScanAllowed = true; 
             
-            isScanAllowed = true; // ვაძლევთ კოდის წაკითხვის უფლებას
-
-            // ვიზუალური ანიმაცია: შიდა თეთრი რგოლი პატარავდება (თითქოს იღებს)
             document.getElementById('capture-inner').classList.add('scale-75', 'bg-gray-200');
             
-            // 2 წამში თუ ვერ იპოვა კოდი, ავტომატურად გაუქმდეს ძებნა (რომ შემთხვევით მერე არ წაიკითხოს)
+            // 2 წამში უქმდება ძებნა თუ ვერ იპოვა
             setTimeout(() => {
                 if(isScanAllowed) {
                     isScanAllowed = false;
@@ -160,68 +157,58 @@
             document.getElementById('capture-inner').classList.remove('scale-75', 'bg-gray-200');
         }
 
-        function onScanSuccess(decodedText) {
-            // თუ ღილაკზე არ დაუჭერია, ვაიგნორებთ ყველაფერს!
-            if (!isScanAllowed) return; 
+        function extractLastDigit(text) {
+            // მოვძებნოთ ბოლო ციფრი ტექსტში. თუ რამე შეცდომაა და არ აქვს ციფრი, დააბრუნებს "?"
+            let match = text.match(/\d(?=\D*$)/);
+            return match ? match[0] : "?";
+        }
 
-            // წაიკითხა კოდი? ეგრევე ვართმევთ უფლებას რომ ორჯერ არ წაიკითხოს
+        function onScanSuccess(decodedText) {
+            if (!isScanAllowed) return; 
+            
             isScanAllowed = false; 
             resetCaptureButtonUI();
 
-            if (!currentOrder) {
-                // 1. დაფიქსირდა ნივთი
-                currentOrder = decodedText;
-                
-                document.getElementById('instruction-text').innerText = "2. დაუმიზნე თაროს და დააჭირე";
-                document.getElementById('instruction-text').classList.replace('text-gray-800', 'text-transparent');
-                document.getElementById('instruction-text').classList.add('bg-clip-text', 'bg-gradient-insta');
-                
-                document.getElementById('scanned-order-display').classList.remove('hidden');
-                document.getElementById('order-number').innerText = currentOrder;
-                document.getElementById('cancel-btn').classList.remove('hidden'); // ვანახებთ "X" ღილაკს
-                
-                if (navigator.vibrate) navigator.vibrate(100);
-            } 
-            else {
-                // 2. დაფიქსირდა თარო
-                let shelfQr = decodedText;
-                saveRecord(currentOrder, shelfQr);
-                
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-
-                document.getElementById('instruction-text').innerText = "✅ წარმატებით დაემატა!";
-                document.getElementById('instruction-text').classList.remove('text-transparent', 'bg-clip-text', 'bg-gradient-insta');
-                document.getElementById('instruction-text').classList.add('text-green-500');
-                document.getElementById('cancel-btn').classList.add('hidden');
-
-                setTimeout(() => {
-                    resetScan();
-                }, 1500);
-            }
-        }
-
-        function resetScan() {
-            currentOrder = null;
-            isScanAllowed = false;
-            resetCaptureButtonUI();
+            // 1. ვიღებთ შეკვეთის ნომერს და ბოლო ციფრს
+            let orderNumber = decodedText;
+            let shelfNumber = extractLastDigit(orderNumber);
             
-            document.getElementById('instruction-text').innerText = "1. დაუმიზნე ნივთს და დააჭირე";
-            document.getElementById('instruction-text').className = "font-bold text-gray-800 text-lg";
-            document.getElementById('scanned-order-display').classList.add('hidden');
-            document.getElementById('cancel-btn').classList.add('hidden');
+            // 2. ვინახავთ ისტორიაში
+            saveRecord(orderNumber, shelfNumber);
+            
+            // ვიბრაცია წარმატებაზე
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+            // 3. ვაჩვენებთ დიდ ეკრანს (Overlay)
+            document.getElementById('overlay-order').innerText = orderNumber;
+            document.getElementById('overlay-shelf').innerText = shelfNumber;
+            
+            let overlay = document.getElementById('result-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex', 'animate-pop');
+
+            // ვმალავთ ზედა ინსტრუქციას
+            document.getElementById('status-card').classList.add('opacity-0');
+
+            // 4. ვხურავთ დიდ ეკრანს 2.5 წამში და ვაბრუნებთ საწყის მდგომარეობაში
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex', 'animate-pop');
+                document.getElementById('status-card').classList.remove('opacity-0');
+            }, 2500);
         }
 
         function saveRecord(order, shelf) {
-            let history = JSON.parse(localStorage.getItem('dressiver_qr_history')) || [];
+            let history = JSON.parse(localStorage.getItem('dressiver_qr_history_v2')) || [];
             let timeString = new Date().toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit' });
             
             history.unshift({ order: order, shelf: shelf, time: timeString });
-            localStorage.setItem('dressiver_qr_history', JSON.stringify(history));
+            localStorage.setItem('dressiver_qr_history_v2', JSON.stringify(history));
             loadHistory();
         }
 
         function loadHistory() {
-            let history = JSON.parse(localStorage.getItem('dressiver_qr_history')) || [];
+            let history = JSON.parse(localStorage.getItem('dressiver_qr_history_v2')) || [];
             let list = document.getElementById('history-list');
             list.innerHTML = "";
             
@@ -240,7 +227,7 @@
                     </div>
                     <div class="bg-white border border-gray-200 text-gray-700 text-sm font-bold px-4 py-2 rounded-xl shadow-sm flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-gradient-insta"></span>
-                        ${item.shelf}
+                        თარო: <span class="text-lg">${item.shelf}</span>
                     </div>
                 `;
                 list.appendChild(li);
@@ -249,7 +236,7 @@
 
         function clearHistory() {
             if(confirm("ნამდვილად გსურთ ისტორიის წაშლა?")) {
-                localStorage.removeItem('dressiver_qr_history');
+                localStorage.removeItem('dressiver_qr_history_v2');
                 loadHistory();
             }
         }
